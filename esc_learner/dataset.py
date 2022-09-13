@@ -10,6 +10,12 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
 
+def remove_silence(waveform: torch.Tensor, max_length: int) -> torch.Tensor:
+    nonzeros = waveform.nonzero()
+    waveform = waveform[:, nonzeros.min() : nonzeros.max()]
+    return torch.nn.functional.pad(waveform, (1, max_length), value=0)
+
+
 def random_selection(waveform: torch.Tensor, max_length: int) -> torch.Tensor:
     start_selected = random.randint(0, waveform.shape[-1] - max_length - 1)
     return waveform[..., start_selected : (start_selected + max_length)]
@@ -61,6 +67,8 @@ class Folds(Dataset):
 
             path = Path(self.directory) / "audio" / self.annotations.iloc[index, 0]
             waveform, sample_rate = torchaudio.load(path)  # noqa
+            waveform = remove_silence(waveform, self.max_length)
+
             label = torch.as_tensor(self.annotations.iloc[index, 2])
             label = torch.nn.functional.one_hot(label, num_classes=self.n_classes).float()
             if self.validation:
@@ -68,6 +76,7 @@ class Folds(Dataset):
                 data.extend([{"audio": w, "label": label} for w in waveform])
             else:
                 data.append({"audio": waveform, "label": label})
+
         return data
 
     def as_data_loader(self) -> DataLoader:

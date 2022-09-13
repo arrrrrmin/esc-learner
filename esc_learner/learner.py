@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
+def sufficient_amplitude(waveform: torch.Tensor, threshold: float) -> bool:
+    return waveform.nonzero().max() >= threshold and waveform.nonzero().min() <= threshold * -1
+
+
 class Learner:
     def __init__(self, model, loss_fn, optimizer, scheduler, train_set, eval_set, config):
         self.model = model
@@ -32,12 +36,14 @@ class Learner:
         with tqdm(total=len(self.train_set), file=sys.stdout) as pbar:
             for step, batch in enumerate(self.train_set):
                 x_batch, y_batch = batch["audio"].to(self.device), batch["label"].to(self.device)
+
                 self.optimizer.zero_grad()
                 with torch.set_grad_enabled(True):
                     outputs = self.model.forward(x_batch)
                     loss = self.loss_fn(outputs, y_batch)
                 loss.backward()
                 self.optimizer.step()
+
                 pbar.update(1)
 
     @torch.no_grad()
@@ -60,6 +66,7 @@ class Learner:
         acc = acc.item() / step
         self.history["loss"][epoch] = loss
         self.history["acc"][epoch] = acc
+
         return loss, acc
 
     @torch.no_grad()
@@ -71,14 +78,19 @@ class Learner:
 
         for step, batch in enumerate(self.eval_set):
             x_batch, y_batch = batch["audio"].to(self.device), batch["label"].to(self.device)
+            if not sufficient_amplitude(x_batch, 0.2):
+                continue
+
             outputs = torch.mean(self.model.predict(x_batch), dim=0)
             loss += self.loss_fn(outputs, y_batch[0]).float()
             # No need to divide by batch_size, since we mean the batch anyway
             acc += torch.eq(torch.argmax(outputs, dim=-1), torch.argmax(y_batch[0], dim=-1)).float().sum()
             step += 1
+
         loss = loss.item() / step
         acc = acc.item() / step
         self.history["eval_loss"][epoch] = loss
         self.history["eval_acc"][epoch] = acc
+
         self.checkpoint_saver.save_candidate(epoch, acc, self.model, self.history)
         return loss, acc
