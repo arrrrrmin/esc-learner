@@ -13,12 +13,13 @@ from torch.utils.data import Dataset
 def remove_silence(waveform: torch.Tensor, max_length: int) -> torch.Tensor:
     nonzeros = waveform.nonzero()
     waveform = waveform[:, nonzeros.min() : nonzeros.max()]
-    return torch.nn.functional.pad(waveform, (1, max_length), value=0)
+    waveform = torch.nn.functional.pad(waveform, (max_length // 2, max_length // 2), mode="constant", value=0)
+    return waveform
 
 
 def random_selection(waveform: torch.Tensor, max_length: int) -> torch.Tensor:
-    start_selected = random.randint(0, waveform.shape[-1] - max_length - 1)
-    return waveform[..., start_selected : (start_selected + max_length)]
+    start_selected = random.randint(0, waveform.shape[-1] - max_length)
+    return waveform[:, start_selected : (start_selected + max_length)]
 
 
 def crop_validation(waveform: torch.Tensor, max_length: int, num_crops: int) -> List[torch.Tensor]:
@@ -80,4 +81,4 @@ class Folds(Dataset):
         return data
 
     def as_data_loader(self) -> DataLoader:
-        return DataLoader(self, batch_size=self.batch_size)
+        return DataLoader(self, batch_size=self.batch_size, shuffle=(not self.validation))

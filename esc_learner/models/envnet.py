@@ -5,6 +5,7 @@ from typing import Union
 
 import numpy as np
 from torch import nn
+from torch.nn import functional as f
 
 
 class Conv2DBatchNorm(nn.Module):
@@ -17,8 +18,9 @@ class Conv2DBatchNorm(nn.Module):
     ) -> None:
         super(Conv2DBatchNorm, self).__init__()
         self.module = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size, **kwargs),
+            nn.Conv2d(in_channels, out_channels, kernel_size, bias=False, **kwargs),
             nn.BatchNorm2d(out_channels),
+            nn.ReLU(),
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -40,11 +42,10 @@ class FullyConnectedReLU(nn.Module):
         self,
         in_features: int,
         out_features: int,
-        bias: bool = True,
     ) -> None:
         super(FullyConnectedReLU, self).__init__()
         self.module = nn.Sequential(
-            nn.Linear(in_features, out_features, bias),
+            nn.Linear(in_features, out_features),
             nn.ReLU(),
             nn.Dropout(),
         )
@@ -79,7 +80,6 @@ class EnvNet(nn.Module):
                     ("fc5", FullyConnectedReLU(50 * 11 * 14, 4096)),
                     ("fc6", FullyConnectedReLU(4096, 4096)),
                     ("fc7", nn.Linear(4096, self.num_classes)),
-                    ("softmax", nn.Softmax(dim=-1)),
                 ]
             )
         )
@@ -97,7 +97,7 @@ class EnvNet(nn.Module):
 
     def predict(self, X: torch.Tensor) -> torch.Tensor:
         outputs = self.forward(X)
-        return outputs
+        return f.softmax(outputs, dim=-1)
 
     def extract_features(self, X: torch.Tensor) -> torch.Tensor:
         return self.feature_conv(torch.unsqueeze(X, 1))

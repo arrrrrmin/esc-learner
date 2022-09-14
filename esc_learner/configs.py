@@ -18,11 +18,11 @@ def obtain_config() -> argparse.Namespace:
     parser.add_argument("--eval_fold", default=4, type=int, help="Fold for testing (excluded from training)")
     parser.add_argument("--save", default="None", help="Directory to save the results")
 
-    parser.add_argument("--epochs", type=int, default=600)
+    parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--lr", type=float, default=0.01, help="Basic learning rate")
-    parser.add_argument("--lr_gamma", type=float, default=0.01, help="Learning rate gamma adjustment")
-    parser.add_argument("--schedule", type=int, nargs="*", default=[300, 450], help="Steps for lr")
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--lr_gamma", type=float, default=0.1, help="Learning rate gamma adjustment")
+    parser.add_argument("--schedule", type=int, nargs="*", default=[80, 100, 120], help="Steps for lr")
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--weight_decay", type=float, default=5e-4)
     parser.add_argument("--momentum", type=float, default=0.9)
 

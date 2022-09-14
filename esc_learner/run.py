@@ -20,7 +20,7 @@ def envnet_assets(config: argparse.Namespace):
     model = models.model_archive[config.model](config.n_classes)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.SGD(
-        model.parameters(), lr=config.lr, nesterov=True, momentum=config.momentum, weight_decay=config.weight_decay
+        model.parameters(), lr=config.lr, momentum=config.momentum, weight_decay=config.weight_decay, nesterov=True
     )
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, config.schedule, gamma=config.lr_gamma)
 
@@ -41,22 +41,21 @@ def main():
     )
 
     for epoch in range(1, config.epochs + 1):
-        learner.train(epoch)
+        train_loss, train_acc = learner.train(epoch)
+        logger.info("Train Loss : %.6f - Train Acc : %.6f" % (train_loss, train_acc))
 
         # Validate every 10 epochs
         if epoch % 10 == 0:
-            train_loss, train_acc = learner.val_training(epoch)
-            logger.info("TrainLoss : %.5f - TrainAcc : %.5f" % (train_loss, train_acc))
             eval_loss, eval_acc = learner.val_testing(epoch)
-            logger.info("EvalLoss : %.5f - EvalAcc : %.5f" % (eval_loss, eval_acc))
+            logger.info("Eval Loss : %.6f - Eval Acc : %.6f" % (eval_loss, eval_acc))
 
 
 def display_dataset_splits(train_set: Folds, eval_set: Folds) -> None:
     logger.info("+++ Dataset split +++")
-    logger.info("| train_length : {}".format(len(train_set)))
-    logger.info("| folds : {}".format(train_set.folds))
-    logger.info("| eval_length : {}".format(len(eval_set)))
-    logger.info("| folds : {}".format(eval_set.folds))
+    logger.info("| Training length : {}".format(len(train_set)))
+    logger.info("| Training folds : {}".format(train_set.folds))
+    logger.info("| Validation length : {}".format(int(len(eval_set) / eval_set.num_val_crops)))
+    logger.info("| Validation folds : {}".format(eval_set.folds))
     logger.info("++++++++++++++++++++++++++++++++")
 
 
