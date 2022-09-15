@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import uuid
 from pathlib import Path
@@ -19,12 +20,14 @@ def obtain_config() -> argparse.Namespace:
     parser.add_argument("--save", default="None", help="Directory to save the results")
 
     parser.add_argument("--epochs", type=int, default=150)
+    parser.add_argument("--eval_every", type=int, default=10)
     parser.add_argument("--lr", type=float, default=0.01, help="Basic learning rate")
     parser.add_argument("--lr_gamma", type=float, default=0.1, help="Learning rate gamma adjustment")
     parser.add_argument("--schedule", type=int, nargs="*", default=[80, 100, 120], help="Steps for lr")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--weight_decay", type=float, default=5e-4)
     parser.add_argument("--momentum", type=float, default=0.9)
+    parser.add_argument("--freeze_epoch", type=int, default=-1, help="At this epoch only train classification head")
 
     parser.add_argument("--crops", type=int, default=10)
     parser.add_argument("--keep_n", type=int, default=2)
@@ -42,8 +45,8 @@ def obtain_config() -> argparse.Namespace:
     if config.save == "None":
         config.save = "output/"
     config.save = str(Path(config.save) / uuid.uuid4().hex)
-    if not Path(config.save).exists():
-        Path(config.save).mkdir(parents=True)
+    Path(config.save).mkdir(parents=True)
+    json.dump(config.__dict__, (Path(config.save) / "config.json").open("w"), indent=4)
 
     display_config(config)
 
