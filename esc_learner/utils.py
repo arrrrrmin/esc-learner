@@ -7,6 +7,8 @@ import string
 from pathlib import Path
 from typing import List, Dict
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from torch import nn
 
@@ -32,6 +34,9 @@ class CheckpointSaver:
     def save_candidate(
         self, epoch: int, eval_acc: float, model: nn.Module, history: Dict[str, Dict[int, float]]
     ) -> None:
+        # Save history regardless of model performance
+        self.save_history_and_plots(history)
+
         if len(self.checkpoints) == self.keep_n and eval_acc <= self.checkpoints[-1].eval_acc:
             return
 
@@ -39,27 +44,58 @@ class CheckpointSaver:
             weakest = self.checkpoints.pop(-1)
             shutil.rmtree(str(Path(self.save_to) / weakest.name))
 
-        checkpoint_name = self.save_checkpoint(model, history)
+        checkpoint_name = self.save_checkpoint(model)
         self.checkpoints.append(Checkpoint(checkpoint_name, epoch, eval_acc))
         self.checkpoints = list(sorted(self.checkpoints, key=lambda m: m.eval_acc, reverse=True))
+        self.save_overview()
 
         self.display_current_best()
 
-    def save_checkpoint(self, model: nn.Module, history: Dict[str, Dict[int, float]]) -> str:
+    def save_history_and_plots(self, history: Dict[str, Dict[int, float]]) -> None:
+        def save_plot(name: str):
+            if not len(history[name].items()) >= 0:
+                return
+            d = np.array(list(history[name].items()), dtype=float)
+            x, y = d[:, 0], d[:, 1]
+            plt.plot(x, y, label=name)
+
+        json.dump(history, (Path(self.save_to) / "history.json").open("w"), indent=4)
+        output_dir = Path(self.save_to)
+        for history_name in [k for k in history.keys() if "loss" in k]:
+            save_plot(history_name)
+        plt.legend()
+        plt.savefig(output_dir / "losses.png")
+        plt.close()
+        for history_name in [k for k in history.keys() if "acc" in k]:
+            save_plot(history_name)
+        plt.legend()
+        plt.savefig(output_dir / "accuracies.png")
+        plt.close()
+
+    def save_checkpoint(self, model: nn.Module, final: bool = False) -> str:
         checkpoint_name = "".join(random.sample(string.ascii_lowercase + string.digits, 10))
+        if final:
+            checkpoint_name = "final"
         output_dir = Path(self.save_to) / checkpoint_name
         output_dir.mkdir(parents=True)
 
         torch.save(model.state_dict(), output_dir / f"{checkpoint_name}.model")
-        with (output_dir / f"{checkpoint_name}-history.json").open("w") as f:
-            f.write(json.dumps(history, indent=4))
-
+        # with (output_dir / "history.json").open("w") as f:
+        #     f.write(json.dumps(history, indent=4))
         logger.info(f"Checkpoint written to '{output_dir}'")
         return checkpoint_name
 
+    def save_overview(self) -> None:
+        json.dump(self.as_dict(), (Path(self.save_to) / "checkpoints.json").open("w"), indent=4)
+
+    def as_dict(self) -> Dict:
+        return {cp.name: cp.__dict__ for cp in self.checkpoints}
+
     def display_current_best(self) -> None:
-        logger.info("+++ Current best checkpoint  +++")
-        logger.info("| epoch : {}".format(self.checkpoints[0].epoch))
-        logger.info("| name : {}".format(self.checkpoints[0].name))
-        logger.info("| eval_acc : {}".format(self.checkpoints[0].eval_acc))
+        logger.info("+++ Current best checkpoints  +++")
+        overview = self.as_dict()
+        for name in overview.keys():
+            logger.info("+++ {}  +++".format(name))
+            for k, v in overview[name].items():
+                logger.info("| {} : {}".format(k, v))
         logger.info("++++++++++++++++++++++++++++++++")
