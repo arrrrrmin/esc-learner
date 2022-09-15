@@ -84,10 +84,6 @@ class EnvNet(nn.Module):
             )
         )
 
-    def freeze_feature_extraction(self):
-        for param in self.feature_conv.parameters():
-            param.requires_grad = False
-
     @property
     def t_size(self) -> int:
         return int(np.ceil(self.config.sample_rate * self.config.t)) + 14
@@ -101,3 +97,16 @@ class EnvNet(nn.Module):
 
     def extract_features(self, X: torch.Tensor) -> torch.Tensor:
         return self.feature_conv(torch.unsqueeze(X, 1))
+
+    def freeze_feature_extraction(self) -> nn.Sequential:
+        for param in self.feature_conv.parameters():
+            param.requires_grad = False
+        return self.feature_conv
+
+    @classmethod
+    def load_state(cls, num_classes: int, fp: str) -> "EnvNet":
+        envnet = cls(num_classes)
+        envnet.load_state_dict(torch.load(fp))
+        # Load a model in eval mode by default
+        envnet.eval()
+        return envnet

@@ -1,12 +1,12 @@
 import argparse
 import logging
+from pathlib import Path
 
 from torch import optim, nn
 
 from esc_learner import configs, models
 from esc_learner.dataset import Folds
-from esc_learner.learner import Learner
-
+from esc_learner.learner import Learner, Validator
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -19,9 +19,7 @@ def envnet_assets(config: argparse.Namespace):
 
     model = models.model_archive[config.model](config.n_classes)
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(
-        model.parameters(), lr=config.lr, momentum=config.momentum, weight_decay=config.weight_decay, nesterov=True
-    )
+    optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum, weight_decay=config.weight_decay)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, config.schedule, gamma=config.lr_gamma)
 
     return model, loss_fn, optimizer, scheduler
@@ -36,18 +34,28 @@ def main():
     eval_set = Folds(config.data, config.eval_fold, validation=True, config=config)
     display_dataset_splits(train_set, eval_set)
 
-    learner = Learner(
-        model, loss_fn, optimizer, scheduler, train_set.as_data_loader(), eval_set.as_data_loader(), config
-    )
+    learner = Learner(model, loss_fn, optimizer, scheduler, train_set, eval_set, config)
 
     for epoch in range(1, config.epochs + 1):
         train_loss, train_acc = learner.train(epoch)
         logger.info("Train Loss : %.6f - Train Acc : %.6f" % (train_loss, train_acc))
 
         # Validate every 10 epochs
-        if epoch % 10 == 0:
+        if epoch % config.eval_every == 0:
             eval_loss, eval_acc = learner.val_testing(epoch)
             logger.info("Eval Loss : %.6f - Eval Acc : %.6f" % (eval_loss, eval_acc))
+
+        if config.freeze_epoch == epoch:
+            logger.info("Freezing params of feature extraction module, namely:")
+            module = learner.model.freeze_feature_extraction()
+            logger.info(module)
+
+    best_model_checkpoint = learner.checkpoint_saver.checkpoints[0].name
+    model_fp = Path(config.save) / best_model_checkpoint / f"{best_model_checkpoint}.model"
+    model = models.model_archive[config.model].load_state(config.n_classes, model_fp)
+
+    validator = Validator(model, eval_set, config)
+    validator.evaluate()
 
 
 def display_dataset_splits(train_set: Folds, eval_set: Folds) -> None:

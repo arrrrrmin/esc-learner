@@ -1,8 +1,12 @@
+import json
 import logging
 import sys
+from pathlib import Path
 from typing import Union, List
 
+import pandas as pd
 import torch
+from sklearn.metrics import confusion_matrix
 from torch.nn import functional as f
 from tqdm import tqdm
 
@@ -23,19 +27,22 @@ def drop_silent_windows(
     return res
 
 
+def count_correct_preds(predictions_per_class: torch.Tensor, y_one_hot: torch.Tensor) -> torch.Tensor:
+    return torch.eq(torch.argmax(predictions_per_class, dim=-1), torch.argmax(y_one_hot, dim=-1)).float().sum()
+
+
 class Learner:
     def __init__(self, model, loss_fn, optimizer, scheduler, train_set, eval_set, config):
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.train_set = train_set
-        self.eval_set = eval_set
+        self.train_set = train_set.as_data_loader()
+        self.eval_set = eval_set.as_data_loader()
         self.config = config
         self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
         self.model.to(device=self.device)
         self.history = {"loss": {}, "acc": {}, "eval_loss": {}, "eval_acc": {}}
-        self.best_models = []
         self.checkpoint_saver = CheckpointSaver(config.keep_n, save_to=config.save)
 
     def train(self, epoch: int) -> (torch.Tensor, torch.Tensor):
@@ -50,17 +57,14 @@ class Learner:
                 x_batch, y_batch = batch["audio"].to(self.device), batch["label"].to(self.device)
 
                 self.optimizer.zero_grad()
-                with torch.set_grad_enabled(True):
-                    outputs = self.model.forward(x_batch)
-                    train_loss = self.loss_fn(outputs, y_batch)
+                outputs = self.model.forward(x_batch)
+                train_loss = self.loss_fn(outputs, y_batch)
                 train_loss.backward()
                 self.optimizer.step()
 
                 outputs = f.softmax(outputs, dim=-1)
                 loss += train_loss
-                acc += torch.eq(
-                    torch.argmax(outputs, dim=-1), torch.argmax(y_batch, dim=-1)
-                ).float().sum() / outputs.size(0)
+                acc += count_correct_preds(outputs, y_batch) / outputs.size(0)
                 step += 1
                 pbar.update(1)
 
@@ -83,14 +87,13 @@ class Learner:
                 x_batch, y_batch = batch["audio"].to(self.device), batch["label"].to(self.device)
 
                 x_batch, _ = drop_silent_windows(x_batch, None, threshold=0.2)
-                if len(x_batch.size()) == 0:
+                if x_batch.size(0) == 0:
                     continue
-
-                outputs = torch.sum(self.model.forward(x_batch), dim=0)
+                outputs = torch.mean(self.model.forward(x_batch), dim=0)
                 loss += self.loss_fn(outputs, y_batch[0]).float()
                 outputs = f.softmax(outputs, dim=-1)
-                # No need to divide by batch_size, since we sum the batch anyway
-                acc += torch.eq(torch.argmax(outputs, dim=-1), torch.argmax(y_batch[0])).float().sum()
+                # No need to divide by batch_size, since we average the batch preds
+                acc += count_correct_preds(outputs, y_batch[0])
                 step += 1
                 pbar.update(1)
 
@@ -101,3 +104,45 @@ class Learner:
 
         self.checkpoint_saver.save_candidate(epoch, acc, self.model, self.history)
         return loss, acc
+
+    def save_last_epoch(self) -> str:
+        return self.checkpoint_saver.save_checkpoint(self.model, self.history, True)
+
+
+class Validator:
+    def __init__(self, model, eval_set, config):
+        self.model = model
+        self.eval_set = eval_set.as_data_loader()
+        self.config = config
+        self.target_to_cats = self.eval_set.dataset.get_target_to_category()
+        self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        self.model.to(self.device)
+
+    def evaluate(self) -> None:
+        self.model.eval()
+        acc = torch.tensor(0.0).to(self.device)
+        step = 0
+        preds = []
+        gts = []
+        for batch in self.eval_set:
+            x_batch, y_batch = batch["audio"].to(self.device), batch["label"].to(self.device)
+
+            x_batch, _ = drop_silent_windows(x_batch, None, threshold=0.2)
+            if x_batch.size(0) == 0:
+                continue
+            output = torch.mean(self.model.predict(x_batch), dim=0)
+            preds.append(torch.argmax(output, dim=-1).cpu())
+            gts.append(torch.argmax(y_batch[0], dim=-1).cpu())
+            acc += count_correct_preds(output, y_batch[0])
+            step += 1
+
+        acc = acc.item() / step
+        conf_mat = pd.DataFrame(
+            confusion_matrix(preds, gts),
+            columns=[self.target_to_cats[i] for i in range(self.config.n_classes)],
+            index=[self.target_to_cats[i] for i in range(self.config.n_classes)],
+        )
+
+        (Path(self.config.save) / "eval").mkdir(parents=True, exist_ok=True)
+        conf_mat.to_csv(Path(self.config.save) / "eval" / "confusion_matrix.csv")
+        json.dump({"acc": acc}, (Path(self.config.save) / "eval" / "result.json").open("w"))
