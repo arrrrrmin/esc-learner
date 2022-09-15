@@ -1,7 +1,7 @@
 import argparse
 import random
 from pathlib import Path
-from typing import List, TypedDict, Union
+from typing import List, TypedDict, Union, Dict
 
 import pandas as pd
 import torch
@@ -60,6 +60,12 @@ class Folds(Dataset):
 
         return self.data[index]
 
+    def get_target_to_category(self) -> Dict[int, str]:
+        return {int(self.annotations.iloc[i, 2]): self.annotations.iloc[i, 3] for i in range(len(self.annotations))}
+
+    def get_category_to_target(self) -> Dict[str, int]:
+        return {self.annotations.iloc[i, 3]: int(self.annotations.iloc[i, 2]) for i in range(len(self.annotations))}
+
     def load_folds(self) -> List[Example]:
         data = []
         for index in range(self.annotations.shape[0]):
@@ -73,6 +79,7 @@ class Folds(Dataset):
             label = torch.as_tensor(self.annotations.iloc[index, 2])
             label = torch.nn.functional.one_hot(label, num_classes=self.n_classes).float()
             if self.validation:
+                # When we validate we need to set batch_size = num_val_crops
                 waveform = crop_validation(waveform, self.max_length, self.num_val_crops)
                 data.extend([{"audio": w, "label": label} for w in waveform])
             else:
