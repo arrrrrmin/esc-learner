@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
+def mean_squard_logarithmic_loss(p: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
+    N = p.size(0)
+    y = torch.sum(torch.pow(torch.log(torch.div(p + 1, a + 1)), 2), dim=-1)
+    return 1 / N * y
+
+
+def count_correct_preds(p: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    return torch.eq(torch.argmax(p, dim=-1), torch.argmax(y, dim=-1)).float().sum()
+
+
 @dataclass
 class Checkpoint:
     name: str
@@ -80,8 +90,6 @@ class CheckpointSaver:
         output_dir.mkdir(parents=True)
 
         torch.save(model.state_dict(), output_dir / f"{checkpoint_name}.model")
-        # with (output_dir / "history.json").open("w") as f:
-        #     f.write(json.dumps(history, indent=4))
         logger.info(f"Checkpoint written to '{output_dir}'")
         return checkpoint_name
 
