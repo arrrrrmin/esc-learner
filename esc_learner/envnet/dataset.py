@@ -11,10 +11,9 @@ from torch.utils.data import Dataset
 
 
 def remove_silence(waveform: torch.Tensor, max_length: int) -> torch.Tensor:
-    nonzeros = waveform.nonzero()
-    waveform = waveform[:, nonzeros.min() : nonzeros.max()]
-    waveform = torch.nn.functional.pad(waveform, (max_length // 2, max_length // 2), mode="constant", value=0)
-    return waveform
+    waveform = waveform[:, waveform.nonzero().min() : waveform.nonzero().max()]
+    pad_width = max_length // 2
+    return torch.nn.functional.pad(waveform, (pad_width, pad_width), mode="constant", value=0)
 
 
 def random_selection(waveform: torch.Tensor, max_length: int) -> torch.Tensor:

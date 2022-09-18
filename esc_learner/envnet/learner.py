@@ -10,7 +10,7 @@ from sklearn.metrics import confusion_matrix
 from torch.nn import functional as f
 from tqdm import tqdm
 
-from esc_learner.utils import CheckpointSaver
+from esc_learner import utils
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -27,10 +27,6 @@ def drop_silent_windows(
     return res
 
 
-def count_correct_preds(predictions_per_class: torch.Tensor, y_one_hot: torch.Tensor) -> torch.Tensor:
-    return torch.eq(torch.argmax(predictions_per_class, dim=-1), torch.argmax(y_one_hot, dim=-1)).float().sum()
-
-
 class Learner:
     def __init__(self, model, loss_fn, optimizer, scheduler, train_set, eval_set, config):
         self.model = model
@@ -43,13 +39,12 @@ class Learner:
         self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
         self.model.to(device=self.device)
         self.history = {"loss": {}, "acc": {}, "eval_loss": {}, "eval_acc": {}}
-        self.checkpoint_saver = CheckpointSaver(config.keep_n, save_to=config.save)
+        self.checkpoint_saver = utils.CheckpointSaver(config.keep_n, save_to=config.save)
 
     def train(self, epoch: int) -> (torch.Tensor, torch.Tensor):
         self.model.train()
         logger.info(f"Train epoch: {epoch}")
-        loss = torch.tensor(0.0).to(self.device)
-        acc = torch.tensor(0.0).to(self.device)
+        loss, acc = torch.tensor(0.0).to(self.device), torch.tensor(0.0).to(self.device)
         step = 0
 
         with tqdm(total=len(self.train_set), file=sys.stdout) as pbar:
@@ -64,7 +59,7 @@ class Learner:
 
                 outputs = f.softmax(outputs, dim=-1)
                 loss += train_loss
-                acc += count_correct_preds(outputs, y_batch) / outputs.size(0)
+                acc += utils.count_correct_preds(outputs, y_batch) / outputs.size(0)
                 step += 1
                 pbar.update(1)
 
@@ -76,10 +71,9 @@ class Learner:
         return loss, acc
 
     @torch.no_grad()
-    def val_testing(self, epoch: int) -> (torch.Tensor, torch.Tensor):
+    def test(self, epoch: int) -> (torch.Tensor, torch.Tensor):
         self.model.eval()
-        loss = torch.tensor(0.0).to(self.device)
-        acc = torch.tensor(0.0).to(self.device)
+        loss, acc = torch.tensor(0.0).to(self.device), torch.tensor(0.0).to(self.device)
         step = 0
 
         with tqdm(total=len(self.eval_set), file=sys.stdout) as pbar:
@@ -93,7 +87,7 @@ class Learner:
                 loss += self.loss_fn(outputs, y_batch[0]).float()
                 outputs = f.softmax(outputs, dim=-1)
                 # No need to divide by batch_size, since we average the batch preds
-                acc += count_correct_preds(outputs, y_batch[0])
+                acc += utils.count_correct_preds(outputs, y_batch[0])
                 step += 1
                 pbar.update(1)
 
@@ -106,7 +100,7 @@ class Learner:
         return loss, acc
 
     def save_last_epoch(self) -> str:
-        return self.checkpoint_saver.save_checkpoint(self.model, self.history, True)
+        return self.checkpoint_saver.save_checkpoint(self.model, True)
 
 
 class Validator:
@@ -133,16 +127,19 @@ class Validator:
             output = torch.mean(self.model.predict(x_batch), dim=0)
             preds.append(torch.argmax(output, dim=-1).cpu())
             gts.append(torch.argmax(y_batch[0], dim=-1).cpu())
-            acc += count_correct_preds(output, y_batch[0])
+            acc += utils.count_correct_preds(output, y_batch[0])
             step += 1
 
         acc = acc.item() / step
-        conf_mat = pd.DataFrame(
-            confusion_matrix(preds, gts),
-            columns=[self.target_to_cats[i] for i in range(self.config.n_classes)],
-            index=[self.target_to_cats[i] for i in range(self.config.n_classes)],
-        )
+        conf_mat = self.build_confusion_matrix(preds, gts)
 
         (Path(self.config.save) / "eval").mkdir(parents=True, exist_ok=True)
         conf_mat.to_csv(Path(self.config.save) / "eval" / "confusion_matrix.csv")
         json.dump({"acc": acc}, (Path(self.config.save) / "eval" / "result.json").open("w"))
+
+    def build_confusion_matrix(self, p: List[torch.Tensor], a: List[torch.Tensor]) -> pd.DataFrame:
+        return pd.DataFrame(
+            confusion_matrix(p, a),
+            columns=[self.target_to_cats[i] for i in range(self.config.n_classes)],
+            index=[self.target_to_cats[i] for i in range(self.config.n_classes)],
+        )

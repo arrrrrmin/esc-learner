@@ -4,9 +4,11 @@ from pathlib import Path
 
 from torch import optim, nn
 
-from esc_learner import configs, models
-from esc_learner.dataset import Folds
-from esc_learner.learner import Learner, Validator
+from esc_learner.envnet import configs
+from esc_learner.envnet.dataset import Folds
+from esc_learner.envnet.model import EnvNet
+from esc_learner.envnet.learner import Learner, Validator
+
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -14,10 +16,7 @@ logger.setLevel(logging.DEBUG)
 
 
 def envnet_assets(config: argparse.Namespace):
-    if config.model != "envnet":
-        raise ValueError("A --model with 'envnet' is required to learn EnvNetV1")
-
-    model = models.model_archive[config.model](config.n_classes)
+    model = EnvNet(config.n_classes)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum, weight_decay=config.weight_decay)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, config.schedule, gamma=config.lr_gamma)
@@ -42,7 +41,7 @@ def main():
 
         # Validate every 10 epochs
         if epoch % config.eval_every == 0:
-            eval_loss, eval_acc = learner.val_testing(epoch)
+            eval_loss, eval_acc = learner.test(epoch)
             logger.info("Eval Loss : %.6f - Eval Acc : %.6f" % (eval_loss, eval_acc))
 
         if config.freeze_epoch == epoch:
@@ -52,7 +51,7 @@ def main():
 
     best_model_checkpoint = learner.checkpoint_saver.checkpoints[0].name
     model_fp = Path(config.save) / best_model_checkpoint / f"{best_model_checkpoint}.model"
-    model = models.model_archive[config.model].load_state(config.n_classes, model_fp)
+    model = EnvNet.load_state(config.n_classes, model_fp)
 
     validator = Validator(model, eval_set, config)
     validator.evaluate()

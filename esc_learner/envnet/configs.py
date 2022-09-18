@@ -11,10 +11,9 @@ logger.setLevel(logging.DEBUG)
 
 
 def obtain_config() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="ESC-Learner training script")
+    parser = argparse.ArgumentParser(description="Envnet learner script")
 
     parser.add_argument("--dataset", required=True, choices=["esc50"])
-    parser.add_argument("--model", required=True, choices=["envnet"])
     parser.add_argument("--data", required=True, help="Path to dataset")
     parser.add_argument("--eval_fold", default=4, type=int, help="Fold for testing (excluded from training)")
     parser.add_argument("--save", default="None", help="Directory to save the results")
@@ -35,6 +34,7 @@ def obtain_config() -> argparse.Namespace:
     config = parser.parse_args()
 
     # Setting defaults
+    config.model = "envnet"
     if config.dataset == "esc50":
         config.n_classes = 50
         config.n_folds = 5
