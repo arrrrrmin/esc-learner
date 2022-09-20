@@ -3,22 +3,51 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+import logging
 
 import requests
 
 
-def download_esc_50():
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+
+esc_50_source = "https://github.com/karoldvl/ESC-50/archive/master.zip"
+
+
+def obtain_config() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--save", default="data/")
     parser.add_argument("--sample_to", required=True, choices=[16000, 44100], type=int)
 
-    conf = parser.parse_args()
+    config = parser.parse_args()
+
+    save_dir = Path(config.save)
+    save_dir.mkdir(exist_ok=True, parents=True)
+
+    display_config(config)
+
+    return config
+
+
+def display_config(conf: argparse.Namespace) -> None:
+    logger.info("++++++++++++++++++++++++++++++++")
+    logger.info("| ESC config (download & resample)")
+    logger.info("++++++++++++++++++++++++++++++++")
+    logger.info("| save : {}".format(conf.save))
+    logger.info("| sample_to : {}".format(conf.sample_to))
+    logger.info("++++++++++++++++++++++++++++++++")
+
+
+def download_esc_50():
+    conf = obtain_config()
 
     save_dir = Path(conf.save)
     save_dir.mkdir(exist_ok=True, parents=True)
 
-    response = requests.get("https://github.com/karoldvl/ESC-50/archive/master.zip")
+    response = requests.get(esc_50_source)
     (save_dir / "master.zip").write_bytes(response.content)
     subprocess.call(f"unzip -q -d {save_dir} {save_dir / 'master.zip'}", shell=True)
     os.remove(save_dir / "master.zip")

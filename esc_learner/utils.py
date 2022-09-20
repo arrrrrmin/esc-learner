@@ -18,14 +18,22 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
+def msle(p: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
+    return torch.square(torch.log(a + 1) - torch.log(p + 1)).sum()
+
+
 def mean_squard_logarithmic_loss(p: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
-    N = p.size(0)
-    y = torch.sum(torch.pow(torch.log(torch.div(p + 1, a + 1)), 2), dim=-1)
-    return 1 / N * y
+    return (torch.log(torch.div(p + 1, a + 1)) ** 2).sum()
 
 
 def count_correct_preds(p: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return torch.eq(torch.argmax(p, dim=-1), torch.argmax(y, dim=-1)).float().sum()
+
+
+def init_dropout(model: nn.Module, p: float):
+    for module in model.modules():
+        if isinstance(module, nn.Dropout):
+            module.p = p
 
 
 @dataclass

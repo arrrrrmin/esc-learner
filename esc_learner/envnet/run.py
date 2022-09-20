@@ -66,5 +66,8 @@ def display_dataset_splits(train_set: Folds, eval_set: Folds) -> None:
     logger.info("++++++++++++++++++++++++++++++++")
 
 
+# Example
+#  poetry run python -m esc_learner.envnet.run --dataset esc50 --model envnet \
+#    --data ./data/esc50-16000/ --save output/envnet/ --epochs 150 --schedule 80 100 120
 if __name__ == "__main__":
     main()
