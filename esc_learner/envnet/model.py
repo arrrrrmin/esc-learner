@@ -60,7 +60,6 @@ class FullyConnectedReLU(nn.Module):
 
 class EnvNet(nn.Module):
     def __init__(self, num_classes: int) -> None:
-        """Model object to learn and use EnvNetV1."""
         super(EnvNet, self).__init__()
         self.num_classes = num_classes
         self.feature_conv = nn.Sequential(
@@ -114,3 +113,70 @@ class EnvNet(nn.Module):
         # Load a model in eval mode by default
         envnet.eval()
         return envnet
+
+
+class EnvNetV2(nn.Module):
+    def __init__(self, num_classes: int) -> None:
+        super(EnvNetV2, self).__init__()
+        self.num_classes = num_classes
+        self.feature_conv = nn.Sequential(
+            OrderedDict(
+                [
+                    ("conv1", Conv2DBatchNorm(1, 32, (1, 64), stride=(1, 2))),
+                    ("conv2", Conv2DBatchNorm(32, 64, (1, 16), stride=(1, 2))),
+                    ("max_pool2", nn.MaxPool2d((1, 64), stride=(1, 64))),
+                    ("transpose", Transpose(1, 2)),
+                ]
+            )
+        )
+        self.classifier = nn.Sequential(
+            OrderedDict(
+                [
+                    ("conv3", Conv2DBatchNorm(1, 32, (8, 8), stride=(1, 1))),
+                    ("conv4", Conv2DBatchNorm(32, 32, (8, 8), stride=(1, 1))),
+                    ("max_pool4", nn.MaxPool2d((5, 3), stride=(5, 3))),
+                    ("conv5", Conv2DBatchNorm(32, 64, (1, 4), stride=(1, 1))),
+                    ("conv6", Conv2DBatchNorm(64, 64, (1, 4), stride=(1, 1))),
+                    ("max_pool6", nn.MaxPool2d((1, 2), stride=(1, 2))),
+                    ("conv7", Conv2DBatchNorm(64, 128, (1, 2), stride=(1, 1))),
+                    ("conv8", Conv2DBatchNorm(128, 128, (1, 2), stride=(1, 1))),
+                    ("max_pool8", nn.MaxPool2d((1, 2), stride=(1, 2))),
+                    ("conv9", Conv2DBatchNorm(128, 256, (1, 2), stride=(1, 1))),
+                    ("conv10", Conv2DBatchNorm(256, 256, (1, 2), stride=(1, 1))),
+                    ("max_pool10", nn.MaxPool2d((1, 2), stride=(1, 2))),
+                    ("flatten", nn.Flatten(1, -1)),
+                    ("fc11", FullyConnectedReLU(256 * 10 * 8, 4096)),
+                    ("fc12", FullyConnectedReLU(4096, 4096)),
+                    ("fc13", nn.Linear(4096, self.num_classes)),
+                ]
+            )
+        )
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        return self.classifier(self.feature_conv(torch.unsqueeze(X, 1)))
+
+    def predict(self, X: torch.Tensor) -> torch.Tensor:
+        outputs = self.forward(X)
+        return f.softmax(outputs, dim=-1)
+
+    def extract_features(self, X: torch.Tensor) -> torch.Tensor:
+        return self.feature_conv(torch.unsqueeze(X, 1))
+
+    def freeze_feature_extraction(self) -> nn.Sequential:
+        for param in self.feature_conv.parameters():
+            param.requires_grad = False
+        return self.feature_conv
+
+    @classmethod
+    def load_state(cls, num_classes: int, fp: str) -> "EnvNetV2":
+        envnetv2 = cls(num_classes)
+        envnetv2.load_state_dict(torch.load(fp))
+        # Load a model in eval mode by default
+        envnetv2.eval()
+        return envnetv2
+
+
+model_archive = {
+    "envnet": EnvNet,
+    "envnetv2": EnvNetV2,
+}

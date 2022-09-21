@@ -4,9 +4,10 @@ from pathlib import Path
 
 from torch import optim, nn
 
+from esc_learner import utils
 from esc_learner.envnet import configs
 from esc_learner.envnet.dataset import Folds
-from esc_learner.envnet.model import EnvNet
+from esc_learner.envnet.model import model_archive
 from esc_learner.envnet.learner import Learner, Validator
 
 
@@ -16,11 +17,17 @@ logger.setLevel(logging.DEBUG)
 
 
 def envnet_assets(config: argparse.Namespace):
-    model = EnvNet(config.n_classes)
+    model = model_archive[config.model](config.n_classes)
+    utils.init_dropout(model, p=0.5)
+    if config.model == "envnetv2":
+        utils.init_weights_normal(model.classifier)
+
     loss_fn = nn.CrossEntropyLoss()
+    if config.bc:
+        loss_fn = nn.KLDivLoss(log_target=True)
+
     optimizer = optim.SGD(model.parameters(), lr=config.lr, momentum=config.momentum, weight_decay=config.weight_decay)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, config.schedule, gamma=config.lr_gamma)
-
     return model, loss_fn, optimizer, scheduler
 
 
@@ -51,7 +58,7 @@ def main():
 
     best_model_checkpoint = learner.checkpoint_saver.checkpoints[0].name
     model_fp = Path(config.save) / best_model_checkpoint / f"{best_model_checkpoint}.model"
-    model = EnvNet.load_state(config.n_classes, model_fp)
+    model = model_archive[config.model].load_state(config.n_classes, model_fp)
 
     validator = Validator(model, eval_set, config)
     validator.evaluate()

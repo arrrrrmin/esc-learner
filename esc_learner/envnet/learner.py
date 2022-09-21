@@ -53,11 +53,12 @@ class Learner:
 
                 self.optimizer.zero_grad()
                 outputs = self.model.forward(x_batch)
-                train_loss = self.loss_fn(outputs, y_batch)
+
+                train_loss = self.loss_fn(f.log_softmax(outputs, dim=-1), y_batch)
+
                 train_loss.backward()
                 self.optimizer.step()
 
-                outputs = f.softmax(outputs, dim=-1)
                 loss += train_loss
                 acc += utils.count_correct_preds(outputs, y_batch) / outputs.size(0)
                 step += 1

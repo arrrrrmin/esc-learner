@@ -14,6 +14,7 @@ def obtain_config() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Envnet learner script")
 
     parser.add_argument("--dataset", required=True, choices=["esc50"])
+    parser.add_argument("--model", required=True, choices=["envnet", "envnetv2"])
     parser.add_argument("--data", required=True, help="Path to dataset")
     parser.add_argument("--eval_fold", default=4, type=int, help="Fold for testing")
     parser.add_argument("--save", default="None", help="Directory to save results")
@@ -30,16 +31,19 @@ def obtain_config() -> argparse.Namespace:
     parser.add_argument("--freeze_epoch", type=int, default=-1, help="At this epoch only train classification head")
 
     parser.add_argument("--crops", type=int, default=10)
+    parser.add_argument("--bc", action="store_true")
 
     config = parser.parse_args()
 
-    # Setting defaults
-    config.model = "envnet"
     if config.dataset == "esc50":
         config.n_classes = 50
         config.n_folds = 5
+
     config.fs = 16000
     config.max_length = 24014
+    if config.model == "envnetv2":
+        config.fs = 44100
+        config.max_length = 66650
     config.train_folds = [i for i in range(1, config.n_folds + 1) if i != config.eval_fold]
 
     if config.save == "None":
@@ -61,6 +65,7 @@ def display_config(conf: argparse.Namespace) -> None:
     logger.info("| save : {}".format(conf.save))
     logger.info("| eval_fold : {}".format(conf.eval_fold))
     logger.info("| model : {}".format(conf.model))
+    logger.info("| bc : {}".format(conf.bc))
     logger.info("| epochs : {}".format(conf.epochs))
     logger.info("| lr : {}".format(conf.lr))
     logger.info("| lr_gamma : {}".format(conf.lr_gamma))

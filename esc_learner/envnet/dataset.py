@@ -3,11 +3,14 @@ import random
 from pathlib import Path
 from typing import List, TypedDict, Union, Dict
 
+import numpy as np
 import pandas as pd
 import torch
 import torchaudio
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+
+from esc_learner.envnet import bc
 
 
 def remove_silence(waveform: torch.Tensor, max_length: int) -> torch.Tensor:
@@ -38,6 +41,9 @@ class Folds(Dataset):
         self.folds = folds if isinstance(folds, list) else [folds]
         self.validation = validation
 
+        self.bc_training = config.bc
+        self.fs = config.fs
+
         self.max_length = config.max_length
         self.num_val_crops = config.crops
         self.batch_size = config.batch_size if not self.validation else self.num_val_crops
@@ -50,10 +56,14 @@ class Folds(Dataset):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, index) -> Example:
+    def __getitem__(self, index: int) -> Example:
         if not self.validation:
+            if self.bc_training:
+                return self.mix_samples(index)
+
+            waveform = remove_silence(self.data[index]["audio"], self.max_length)
             return Example(
-                audio=random_selection(self.data[index]["audio"], self.max_length),
+                audio=random_selection(waveform, self.max_length),
                 label=self.data[index]["label"],
             )
 
@@ -73,8 +83,6 @@ class Folds(Dataset):
 
             path = Path(self.directory) / "audio" / self.annotations.iloc[index, 0]
             waveform, sample_rate = torchaudio.load(path)  # noqa
-            waveform = remove_silence(waveform, self.max_length)
-
             label = torch.as_tensor(self.annotations.iloc[index, 2])
             label = torch.nn.functional.one_hot(label, num_classes=self.n_classes).float()
             if self.validation:
@@ -85,6 +93,26 @@ class Folds(Dataset):
                 data.append({"audio": waveform, "label": label})
 
         return data
+
+    def get_conter_sample(self, example: Example) -> Example:
+        while True:
+            mixable_example = self.data[random.randint(0, len(self.data) - 1)]
+            if not torch.equal(example["label"], mixable_example["label"]):
+                break
+        return mixable_example
+
+    def mix_samples(self, index: int):
+        r = np.array(random.random())
+        example_a = self.data[index]
+        example_b = self.get_conter_sample(example_a)
+        sound_a = example_a["audio"]
+        sound_b = example_b["audio"]
+        sound = random_selection(bc.mix_samples(sound_a, sound_b, r, self.fs).astype(np.float32), self.max_length)
+        eye = np.eye(self.n_classes)
+        l_a = example_a["label"].argmax().item()
+        l_b = example_b["label"].argmax().item()
+        label = (eye[l_a] * r + eye[l_b] * (1 - r)).astype(np.float32)
+        return {"audio": sound, "label": label}
 
     def as_data_loader(self) -> DataLoader:
         return DataLoader(self, batch_size=self.batch_size, shuffle=(not self.validation))
