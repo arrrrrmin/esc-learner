@@ -7,6 +7,7 @@ from typing import Union, List
 import pandas as pd
 import torch
 from sklearn.metrics import confusion_matrix
+from torch import nn
 from torch.nn import functional as f
 from tqdm import tqdm
 
@@ -41,6 +42,11 @@ class Learner:
         self.history = {"loss": {}, "acc": {}, "eval_loss": {}, "eval_acc": {}}
         self.checkpoint_saver = utils.CheckpointSaver(config.keep_n, save_to=config.save)
 
+    def compute_loss(self, outputs: torch.Tensor, y_batch: torch.Tensor) -> torch.Tensor:
+        if isinstance(self.loss_fn, nn.CrossEntropyLoss):
+            return self.loss_fn(outputs, y_batch)
+        return self.loss_fn(f.log_softmax(outputs, dim=-1), y_batch)
+
     def train(self, epoch: int) -> (torch.Tensor, torch.Tensor):
         self.model.train()
         logger.info(f"Train epoch: {epoch}")
@@ -54,12 +60,15 @@ class Learner:
                 self.optimizer.zero_grad()
                 outputs = self.model.forward(x_batch)
 
-                train_loss = self.loss_fn(f.log_softmax(outputs, dim=-1), y_batch)
-
+                train_loss = self.compute_loss(outputs, y_batch)
                 train_loss.backward()
                 self.optimizer.step()
+                print(train_loss)
 
-                loss += train_loss
+                if isinstance(self.loss_fn, nn.CrossEntropyLoss):
+                    outputs = torch.softmax(outputs, dim=-1)
+
+                loss += train_loss.float()
                 acc += utils.count_correct_preds(outputs, y_batch) / outputs.size(0)
                 step += 1
                 pbar.update(1)
@@ -85,7 +94,7 @@ class Learner:
                 if x_batch.size(0) == 0:
                     continue
                 outputs = torch.mean(self.model.forward(x_batch), dim=0)
-                loss += self.loss_fn(outputs, y_batch[0]).float()
+                loss += self.compute_loss(outputs, y_batch[0])
                 outputs = f.softmax(outputs, dim=-1)
                 # No need to divide by batch_size, since we average the batch preds
                 acc += utils.count_correct_preds(outputs, y_batch[0])
