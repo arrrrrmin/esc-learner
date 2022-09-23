@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple
 
 import torch
 from torch import nn
@@ -44,19 +44,6 @@ class Conv2DBatchNorm(nn.Module):
         return self.module(X)
 
 
-class ResolutionBranch1(nn.Module):
-    def __init__(self):
-        super(ResolutionBranch1, self).__init__()
-        self.conv1 = Conv1DBatchNorm(1, 32, 11, stride=1)
-        self.conv2 = Conv1DBatchNorm(32, 32, 3, stride=1)
-        self.pool2 = nn.MaxPool1d(150)
-
-    def forward(self, X: torch.Tensor) -> torch.Tensor:
-        X = self.conv1(X)
-        X = self.conv2(X)
-        return self.pool2(X)
-
-
 class ResolutionBranch2(nn.Module):
     def __init__(self):
         super(ResolutionBranch2, self).__init__()
@@ -86,81 +73,119 @@ class ResolutionBranch3(nn.Module):
 class FeatureBlock1(nn.Module):
     def __init__(self):
         super(FeatureBlock1, self).__init__()
-        self.conv = Conv2DBatchNorm(1, 64, 3, stride=1, padding="same")
+        self.conv = Conv2DBatchNorm(1, 64, (3, 3), stride=(1, 1))
         self.pool1 = nn.MaxPool2d((3, 11))  # 32, 40
-        self.pool2 = nn.MaxPool2d((8, 8))  # 4, 5
 
     def forward(self, X: torch.Tensor):
-        return self.pool2(self.pool1(self.conv(X)))
+        return self.pool1(self.conv(X))
 
 
 class FeatureBlock2(nn.Module):
     def __init__(self):
         super(FeatureBlock2, self).__init__()
-        self.conv = Conv2DBatchNorm(1, 128, 3, stride=1, padding="same")
-        self.pool1 = nn.MaxPool2d((6, 22))  # 16, 20
-        self.pool2 = nn.MaxPool2d((4, 4))  # 4, 5
+        self.conv = Conv2DBatchNorm(42, 128, (3, 3), stride=(1, 1))
+        self.pool1 = nn.MaxPool2d((2, 2))  # 16, 20
 
     def forward(self, X: torch.Tensor):
-        return self.pool2(self.pool1(self.conv(X)))
+        return self.pool1(self.conv(X))
 
 
 class FeatureBlock3(nn.Module):
     def __init__(self):
         super(FeatureBlock3, self).__init__()
-        self.conv = Conv2DBatchNorm(1, 256, 3, stride=1, padding="same")
-        self.pool1 = nn.MaxPool2d((12, 44))  # 8, 10
-        self.pool2 = nn.MaxPool2d((2, 2))  # 4, 5
+        self.conv = Conv2DBatchNorm(128, 256, (3, 3), stride=(1, 1))
+        self.pool1 = nn.MaxPool2d((2, 2))  # 4, 5
 
     def forward(self, X: torch.Tensor):
-        return self.pool2(self.pool1(self.conv(X)))
+        return self.pool1(self.conv(X))
 
 
 class FeatureBlock4(nn.Module):
     def __init__(self):
         super(FeatureBlock4, self).__init__()
-        self.conv = Conv2DBatchNorm(1, 256, 3, stride=1, padding="same")
-        self.pool1 = nn.MaxPool2d((20, 88))  # 8, 10
+        self.conv = Conv2DBatchNorm(256, 256, (3, 3), stride=(1, 1))
+        self.pool1 = nn.MaxPool2d((2, 2))  # 8, 10
+
+    def forward(self, X: torch.Tensor):
+        return self.pool1(self.conv(X))
+
+
+class ResolutionBranch(nn.Module):
+    def __init__(
+        self, in_channels: int, out_channels: int, kernel_size: Tuple[int, int], stride: int, pooling_kernel: int
+    ):
+        super(ResolutionBranch, self).__init__()
+        self.conv1 = Conv2DBatchNorm(in_channels, out_channels, kernel_size, stride=stride)
+        self.conv2 = Conv2DBatchNorm(out_channels, out_channels, (1, 11), stride=(1, 1))
+        self.pool2 = nn.MaxPool1d(pooling_kernel, padding=6)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
-        x = self.conv(X)
-        x = self.pool1(x)
-        return x
+        X = self.conv1(X)
+        X = self.conv2(X)
+        return self.pool2(torch.squeeze(X, dim=2))
+
+
+class FeatureBlock(nn.Module):
+    def __init__(self):
+        super(FeatureBlock, self).__init__()
+        self.conv1 = Conv2DBatchNorm(1, 64, (3, 3), stride=(1, 1))
+        self.pool1 = nn.MaxPool2d((3, 11))
+        self.conv2 = Conv2DBatchNorm(64, 128, (3, 3), stride=(1, 1))
+        self.pool2 = nn.MaxPool2d((2, 2))
+        self.conv3 = Conv2DBatchNorm(128, 256, (3, 3), stride=(1, 1))
+        self.pool3 = nn.MaxPool2d((2, 2))
+        self.conv4 = Conv2DBatchNorm(256, 256, (3, 3), stride=(1, 1))
+        self.pool4 = nn.MaxPool2d((2, 2))
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        X = self.conv1(X)
+        X = self.pool1(X)
+        print(X.shape)
+        X = self.conv2(X)
+        X = self.pool2(X)
+        print(X.shape)
+        X = self.conv3(X)
+        X = self.pool3(X)
+        print(X.shape)
+        X = self.conv4(X)
+        X = self.pool4(X)
+        print(X.shape)
+        return X
 
 
 class MultiResCnn(nn.Module):
     def __init__(self, n_classes: int):
         super(MultiResCnn, self).__init__()
         self.n_classes = n_classes
-        self.branch1 = ResolutionBranch1()
-        self.branch2 = ResolutionBranch2()
-        self.branch3 = ResolutionBranch3()
-
-        self.feature1 = FeatureBlock1()
-        self.feature2 = FeatureBlock2()
-        self.feature3 = FeatureBlock3()
-        self.feature4 = FeatureBlock4()
-
-        self.fc1 = FullyConnectedReLU(704 * 4 * 5, 4096)
+        self.branch1 = ResolutionBranch(1, 32, (1, 11), 1, 150)
+        self.branch2 = ResolutionBranch(1, 32, (1, 51), 5, 30)
+        self.branch3 = ResolutionBranch(1, 32, (1, 101), 10, 15)
+        self.feature = FeatureBlock()
+        self.flatten = nn.Flatten(1, -1)
+        self.fc1 = FullyConnectedReLU(256 * 2 * 3, 4096)
         self.fc2 = nn.Linear(4096, n_classes)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
-        b1, b2, b3 = self.branch1(X), self.branch2(X), self.branch3(X)
+        X = torch.unsqueeze(X, dim=1)
+        b1 = self.branch1(X)
+        # print(b1.shape)
+        b2 = self.branch2(X)
+        # print(b2.shape)
+        b3 = self.branch3(X)
+        # print(b3.shape)
         X = torch.unsqueeze(torch.cat((b1, b2, b3), dim=1), dim=1)
-        h1 = self.feature1(X)
-        h2 = self.feature2(X)
-        h3 = self.feature3(X)
-        h4 = self.feature4(X)
-        x = torch.cat((h1, h2, h3, h4), dim=1)
-        return self.fc2(self.fc1(torch.flatten(x, 1, -1)))
+        print(X.shape)
+        X = self.feature(X)
+        # print(X.shape)
+        # x = torch.cat((h1, h2, h3, h4), dim=1)
+        return self.fc2(self.fc1(self.flatten(X)))
 
 
 # There are 64, 128, 256, 256 filters in each convolutional layer respectively
 # with a size of 3 × 3, and we stride the filter by 1 × 1
 if __name__ == "__main__":
     model = MultiResCnn(50)
-    size = int(44100 * 1.5)
-    i = torch.rand(16, 1, size)
-    print("input shape", i.shape)
+    size = int(44100 * 1.5 + 100)
+    i = torch.rand(4, 1, size)
     o = model(i)
     print(o.shape)
