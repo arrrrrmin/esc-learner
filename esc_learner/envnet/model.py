@@ -1,7 +1,3 @@
-""" PyTorch implementation of "Learning Environmental Sounds with End-to-End Convolutional Neural Networks"
-    By Yuji Tokozume, Tatsuya Harada.
-"""
-
 from collections import OrderedDict
 
 import torch
