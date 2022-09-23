@@ -20,11 +20,11 @@ def obtain_config() -> argparse.Namespace:
     parser.add_argument("--keep_n", type=int, default=2)
 
     parser.add_argument("--epochs", type=int, default=160)
-    parser.add_argument("--eval_every", type=int, default=10)
+    parser.add_argument("--eval_every", type=int, default=5)
     parser.add_argument("--lr", type=float, default=0.1, help="Basic learning rate")
     parser.add_argument("--lr_gamma", type=float, default=0.1, help="Learning rate gamma adjustment")
     parser.add_argument("--schedule", type=int, nargs="*", default=[60, 120, 140], help="Steps for lr")
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--weight_decay", type=float, default=5e-4)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--freeze_epoch", type=int, default=-1, help="At this epoch only train classification head")
