@@ -39,7 +39,7 @@ def obtain_config() -> argparse.Namespace:
         config.n_folds = 5
 
     config.fs = 44100
-    config.max_length = 66150
+    config.max_length = 66250
     config.train_folds = [i for i in range(1, config.n_folds + 1) if i != config.eval_fold]
 
     if config.save == "None":

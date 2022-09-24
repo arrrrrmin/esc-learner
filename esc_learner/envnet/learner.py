@@ -63,7 +63,6 @@ class Learner:
                 train_loss = self.compute_loss(outputs, y_batch)
                 train_loss.backward()
                 self.optimizer.step()
-                print(train_loss)
 
                 if isinstance(self.loss_fn, nn.CrossEntropyLoss):
                     outputs = torch.softmax(outputs, dim=-1)

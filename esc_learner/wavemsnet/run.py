@@ -5,10 +5,10 @@ from pathlib import Path
 from torch import nn, optim
 
 from esc_learner import utils
-from esc_learner.multires import configs
+from esc_learner.wavemsnet import configs
 from esc_learner.envnet.dataset import Folds
 from esc_learner.envnet.learner import Learner, Validator
-from esc_learner.multires.model import MultiResCnn
+from esc_learner.wavemsnet.model import WaveMsNet
 
 
 logging.basicConfig()
@@ -17,7 +17,7 @@ logger.setLevel(logging.DEBUG)
 
 
 def multires_assets(config: argparse.Namespace):
-    model = MultiResCnn(config.n_classes)
+    model = WaveMsNet(config.n_classes)
     utils.init_dropout(model, p=0.5)
 
     loss_fn = nn.CrossEntropyLoss()
@@ -54,7 +54,7 @@ def main():
 
     best_model_checkpoint = learner.checkpoint_saver.checkpoints[0].name
     model_fp = Path(config.save) / best_model_checkpoint / f"{best_model_checkpoint}.model"
-    model = MultiResCnn.load_state(config.n_classes, model_fp)
+    model = WaveMsNet.load_state(config.n_classes, model_fp)
 
     validator = Validator(model, eval_set, config)
     validator.evaluate()
@@ -70,6 +70,6 @@ def display_dataset_splits(train_set: Folds, eval_set: Folds) -> None:
 
 
 # Example
-#  poetry run python -m esc_learner.multires.run --dataset esc50 --data ./data/esc50-16000/ --save output/multires/
+#  poetry run python -m esc_learner.wavemsnet.run --dataset esc50 --data ./data/esc50-44100/ --save output/wavemsnet/
 if __name__ == "__main__":
     main()
