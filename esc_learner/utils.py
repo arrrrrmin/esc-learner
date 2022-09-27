@@ -38,6 +38,12 @@ def init_weights_normal(model: nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=torch.sqrt(torch.tensor(1 / module.in_features)).float())
 
 
+def init_weights_xavier(model: nn.Module):
+    for module in model.modules():
+        if isinstance(module, nn.Conv1d):
+            torch.nn.init.xavier_uniform_(module.weight)
+
+
 @dataclass
 class Checkpoint:
     name: str

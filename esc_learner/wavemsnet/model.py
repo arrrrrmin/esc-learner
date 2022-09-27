@@ -6,25 +6,6 @@ from torch import nn
 from esc_learner.envnet.model import FullyConnectedReLU
 
 
-class Conv1DBatchNorm(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: Union[int, tuple],
-        **kwargs,
-    ) -> None:
-        super(Conv1DBatchNorm, self).__init__()
-        self.module = nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size, **kwargs),
-            nn.BatchNorm1d(out_channels),
-            nn.ReLU(),
-        )
-
-    def forward(self, X: torch.Tensor) -> torch.Tensor:
-        return self.module(X)
-
-
 class Conv2DBatchNorm(nn.Module):
     def __init__(
         self,
