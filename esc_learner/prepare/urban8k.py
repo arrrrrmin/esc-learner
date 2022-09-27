@@ -15,7 +15,7 @@ def obtain_config() -> argparse.Namespace:
 
     parser.add_argument("--source", help="path to urban8k extracted directory")
     parser.add_argument("--save", default="data/")
-    parser.add_argument("--sample_to", required=True, choices=[16000, 32000, 44100], type=int)
+    parser.add_argument("--sample_to", required=True, choices=[8000, 16000, 32000, 44100], type=int)
 
     config = parser.parse_args()
 
@@ -56,7 +56,7 @@ def download_urban8k():
     for fold in folds:
         dst_fold = dst_audio_dir / fold.stem
         dst_fold.mkdir(parents=True, exist_ok=True)
-        for fold_file in sorted(audio_dir.glob(f"{fold}/*.wav")):
+        for fold_file in sorted(list(fold.glob("*.wav"))):
             dst_file = dst_fold / f"{fold_file.stem}.wav"
             subprocess.call(
                 f"ffmpeg -i {fold_file} -ac 1 -ar {conf.sample_to} -loglevel error -y {dst_file}", shell=True
