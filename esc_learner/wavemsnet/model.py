@@ -82,3 +82,15 @@ class WaveMsNet(nn.Module):
         X = torch.unsqueeze(torch.cat((b1, b2, b3), dim=1), dim=1)
         X = self.block(X)
         return self.fc2(self.fc1(self.flatten(X)))
+
+    def predict(self, X: torch.Tensor) -> torch.Tensor:
+        outputs = self.forward(X)
+        return torch.softmax(outputs, dim=-1)
+
+    @classmethod
+    def load_state(cls, num_classes: int, fp: str) -> "WaveMsNet":
+        wavemsnet = cls(num_classes)
+        wavemsnet.load_state_dict(torch.load(fp))
+        # Load a model in eval mode by default
+        wavemsnet.eval()
+        return wavemsnet
