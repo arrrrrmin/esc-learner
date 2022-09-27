@@ -6,25 +6,6 @@ from torch import nn
 from esc_learner.envnet.model import FullyConnectedReLU
 
 
-class Conv1DBatchNorm(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: Union[int, tuple],
-        **kwargs,
-    ) -> None:
-        super(Conv1DBatchNorm, self).__init__()
-        self.module = nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size, **kwargs),
-            nn.BatchNorm1d(out_channels),
-            nn.ReLU(),
-        )
-
-    def forward(self, X: torch.Tensor) -> torch.Tensor:
-        return self.module(X)
-
-
 class Conv2DBatchNorm(nn.Module):
     def __init__(
         self,
@@ -101,3 +82,15 @@ class WaveMsNet(nn.Module):
         X = torch.unsqueeze(torch.cat((b1, b2, b3), dim=1), dim=1)
         X = self.block(X)
         return self.fc2(self.fc1(self.flatten(X)))
+
+    def predict(self, X: torch.Tensor) -> torch.Tensor:
+        outputs = self.forward(X)
+        return torch.softmax(outputs, dim=-1)
+
+    @classmethod
+    def load_state(cls, num_classes: int, fp: str) -> "WaveMsNet":
+        wavemsnet = cls(num_classes)
+        wavemsnet.load_state_dict(torch.load(fp))
+        # Load a model in eval mode by default
+        wavemsnet.eval()
+        return wavemsnet
