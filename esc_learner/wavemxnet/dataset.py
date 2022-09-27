@@ -40,7 +40,7 @@ class Folds(Dataset):
 
         self.dataset_name = config.dataset
         self.fold_idx, self.target_idx, self.classname_idx = annotation_indecies[config.dataset]
-        self.meta_file_name = "esc50.csv" if config.dataset == "esc" else "urbansound8k.csv"
+        self.meta_file_name = "esc50.csv" if config.dataset == "esc" else "UrbanSound8K.csv"
         self.annotations = pd.read_csv(Path(self.directory) / "meta" / self.meta_file_name, delimiter=",")
         self.annotations = self.annotations[self.annotations.fold.map(lambda fold: fold in self.folds)]
 

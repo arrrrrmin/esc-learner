@@ -19,11 +19,9 @@ def obtain_config() -> argparse.Namespace:
     parser.add_argument("--save", default="None", help="Directory to save results")
     parser.add_argument("--keep_n", type=int, default=2)
 
-    parser.add_argument("--epochs", type=int, default=160)
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--eval_every", type=int, default=5)
-    parser.add_argument("--lr", type=float, default=0.1, help="Basic learning rate")
-    parser.add_argument("--lr_gamma", type=float, default=0.1, help="Learning rate gamma adjustment")
-    parser.add_argument("--schedule", type=int, nargs="*", default=[60, 120, 140], help="Steps for lr")
+    parser.add_argument("--lr", type=float, default=0.001, help="Basic learning rate")
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--weight_decay", type=float, default=1e-4)
 
@@ -59,8 +57,6 @@ def display_config(conf: argparse.Namespace) -> None:
     logger.info("| eval_folds : {}".format(conf.eval_folds))
     logger.info("| epochs : {}".format(conf.epochs))
     logger.info("| lr : {}".format(conf.lr))
-    logger.info("| lr_gamma : {}".format(conf.lr_gamma))
-    logger.info("| schedule : {}".format(conf.schedule))
     logger.info("| batch_size : {}".format(conf.batch_size))
     logger.info("| keep_n : {}".format(conf.keep_n))
     logger.info("++++++++++++++++++++++++++++++++")
