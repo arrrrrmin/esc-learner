@@ -63,7 +63,6 @@ class Learner:
                 train_loss = self.compute_loss(outputs, y_batch)
                 train_loss.backward()
                 self.optimizer.step()
-                print(train_loss)
 
                 if isinstance(self.loss_fn, nn.CrossEntropyLoss):
                     outputs = torch.softmax(outputs, dim=-1)
@@ -134,10 +133,11 @@ class Validator:
             x_batch, _ = drop_silent_windows(x_batch, None, threshold=0.2)
             if x_batch.size(0) == 0:
                 continue
-            output = torch.mean(self.model.predict(x_batch), dim=0)
-            preds.append(torch.argmax(output, dim=-1).cpu())
+            outputs = torch.mean(self.model.forward(x_batch), dim=0)
+            outputs = f.softmax(outputs, dim=-1)
+            acc += utils.count_correct_preds(outputs, y_batch[0])
+            preds.append(torch.argmax(outputs, dim=-1).cpu())
             gts.append(torch.argmax(y_batch[0], dim=-1).cpu())
-            acc += utils.count_correct_preds(output, y_batch[0])
             step += 1
 
         acc = acc.item() / step

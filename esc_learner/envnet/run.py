@@ -37,7 +37,7 @@ def main():
     model, loss_fn, optimizer, scheduler = envnet_assets(config)
 
     train_set = Folds(config.data, config.train_folds, validation=False, config=config)
-    eval_set = Folds(config.data, config.eval_fold, validation=True, config=config)
+    eval_set = Folds(config.data, config.eval_folds, validation=True, config=config)
     display_dataset_splits(train_set, eval_set)
 
     learner = Learner(model, loss_fn, optimizer, scheduler, train_set, eval_set, config)

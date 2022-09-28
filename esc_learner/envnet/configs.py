@@ -16,7 +16,7 @@ def obtain_config() -> argparse.Namespace:
     parser.add_argument("--dataset", required=True, choices=["esc50"])
     parser.add_argument("--model", required=True, choices=["envnet", "envnetv2"])
     parser.add_argument("--data", required=True, help="Path to dataset")
-    parser.add_argument("--eval_fold", default=4, type=int, help="Fold for testing")
+    parser.add_argument("--eval_folds", type=int, nargs="*", default=[4], help="Fold for testing")
     parser.add_argument("--save", default="None", help="Directory to save results")
     parser.add_argument("--keep_n", type=int, default=2)
 
@@ -44,7 +44,7 @@ def obtain_config() -> argparse.Namespace:
     if config.model == "envnetv2":
         config.fs = 44100
         config.max_length = 66650
-    config.train_folds = [i for i in range(1, config.n_folds + 1) if i != config.eval_fold]
+    config.train_folds = [i for i in range(1, config.n_folds + 1) if i not in config.eval_folds]
 
     if config.save == "None":
         config.save = "output/"
@@ -63,7 +63,7 @@ def display_config(conf: argparse.Namespace) -> None:
     logger.info("++++++++++++++++++++++++++++++++")
     logger.info("| dataset : {}".format(conf.dataset))
     logger.info("| save : {}".format(conf.save))
-    logger.info("| eval_fold : {}".format(conf.eval_fold))
+    logger.info("| eval_folds : {}".format(conf.eval_folds))
     logger.info("| model : {}".format(conf.model))
     logger.info("| bc : {}".format(conf.bc))
     logger.info("| epochs : {}".format(conf.epochs))
