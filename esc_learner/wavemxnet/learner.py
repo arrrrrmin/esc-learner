@@ -125,10 +125,10 @@ class Validator:
         gts = []
         for batch in self.eval_set:
             x_batch, y_batch = batch["audio"].to(self.device), batch["label"].to(self.device)
-            output = torch.mean(self.model.predict(x_batch), dim=0)
+            output = self.model.predict(x_batch)
             preds.append(torch.argmax(output, dim=-1).cpu())
             gts.append(torch.argmax(y_batch, dim=-1).cpu())
-            acc += utils.count_correct_preds(output, y_batch)
+            acc += utils.count_correct_preds(output, y_batch) / output.size(0)
             step += 1
 
         acc = acc.item() / step
@@ -139,6 +139,8 @@ class Validator:
         json.dump({"acc": acc}, (Path(self.config.save) / "eval" / "result.json").open("w"))
 
     def build_confusion_matrix(self, p: List[torch.Tensor], a: List[torch.Tensor]) -> pd.DataFrame:
+        p = torch.cat(p).numpy()
+        a = torch.cat(a).numpy()
         return pd.DataFrame(
             confusion_matrix(p, a),
             columns=[self.target_to_cats[i] for i in range(self.config.n_classes)],

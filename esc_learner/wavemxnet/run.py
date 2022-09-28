@@ -8,7 +8,7 @@ from esc_learner import utils
 from esc_learner.wavemxnet import configs
 from esc_learner.wavemxnet.dataset import Folds
 from esc_learner.wavemxnet.model import WaveMxNet
-from esc_learner.wavemxnet.learner import Learner, Validator
+from esc_learner.wavemxnet.learner import Learner
 
 
 logging.basicConfig()
@@ -49,9 +49,6 @@ def main():
     best_model_checkpoint = learner.checkpoint_saver.checkpoints[0].name
     model_fp = Path(config.save) / best_model_checkpoint / f"{best_model_checkpoint}.model"
     model = WaveMxNet.load_state(config.n_classes, config.m, model_fp)
-
-    validator = Validator(model, eval_set, config)
-    validator.evaluate()
 
 
 def display_dataset_splits(train_set: Folds, eval_set: Folds) -> None:
