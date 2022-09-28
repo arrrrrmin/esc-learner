@@ -76,11 +76,14 @@ written to `--save`. Model architectures are available at `esc_learner/<model_na
 
 ## Access trained models
 
-| Model     | Url                                                                 |
-|-----------|---------------------------------------------------------------------|
-| envnet    | https://esc-learner-assets.s3.eu-central-1.amazonaws.com/envnet/    |
-| wavemsnet | https://esc-learner-assets.s3.eu-central-1.amazonaws.com/wavemsnet/ |
-| wavemxnet | https://esc-learner-assets.s3.eu-central-1.amazonaws.com/wavemxnet/ |
+| Model           | Url                                                                                                     |
+|-----------------|---------------------------------------------------------------------------------------------------------|
+| envnet          | https://esc-learner-assets.s3.eu-central-1.amazonaws.com/envnet/3ea7995342f14062ab9816014010b287.zip    |
+| wavemsnet       | https://esc-learner-assets.eu-central-1.amazonaws.com/wavemsnet/9a3f9b0ecba94a61b67572dec1a1aafd.zip    |
+| wavemxnet (m3)  | https://esc-learner-assets.s3.eu-central-1.amazonaws.com/wavemxnet/54d6681d66b5417ea1dcd5a7332d75d6.zip |
+| wavemxnet (m5)  | https://esc-learner-assets.s3.eu-central-1.amazonaws.com/wavemxnet/dd6569688fb847d6a5edb4548fcb4930.zip |
+| wavemxnet (m11) | https://esc-learner-assets.s3.eu-central-1.amazonaws.com/wavemxnet/e59195cf3d3a41c896ccd8f990cf1afe.zip |
+| wavemxnet (m18) | https://esc-learner-assets.s3.eu-central-1.amazonaws.com/wavemxnet/be0a6daefcc04787a959c3c1b7c1b0cf.zip |
 
 Todo: `envnetv2`
 
